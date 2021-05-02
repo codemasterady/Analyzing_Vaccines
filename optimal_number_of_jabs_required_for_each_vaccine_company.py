@@ -1,10 +1,15 @@
 # Importing the libraries
 import numpy as np
 import pandas as pd
+import keras
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
+import tensorflow as tf
 from keras.models import Sequential
 from keras.layers import Dense
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+import time
 
 # Getting the dataset
 X = pd.read_csv("2021VAERSDATA.csv").iloc[:5000, 0: 18].values
@@ -45,6 +50,17 @@ dep_value = np.array(dep_value)
 training_set = np.concatenate((dep_value, indep_value), axis=1)
 
 # Further Preprocessing of data
+
+# Removing the nan and U
+new_training_set = []
+for setv in training_set:
+    if setv[3] == "Y" or setv[3] == "N":
+        new_training_set.append(setv)
+    else:
+        continue
+new_training_set = np.array(new_training_set)
+training_set = new_training_set
+
 # Processing the Vaccine Types
 vac_type_le = LabelEncoder()
 training_set[:, 1] = vac_type_le.fit_transform(training_set[:, 1])
@@ -67,14 +83,33 @@ le_mapping = dict(
 dep_training = training_set[:, 1].reshape(-1, 1)  # !Y
 indep_training = np.concatenate(
     (training_set[:, 0].reshape(-1, 1), training_set[:, 2].reshape(-1, 1)), axis=1)  # !X
-# indep_training = indep_training.reshape(-1, 1)
+
+# Scaling the indep data
+
+sc = StandardScaler()
+sc.fit_transform(indep_training)
+print(indep_training.shape)
 # Applying the Machine Learning model
 nn = Sequential()
+# input_shape=(indep_training.shape)))
 nn.add(Dense(units=120, activation='relu'))
 nn.add(Dense(units=60, activation='relu'))
-nn.add(Dense(units=30, activation='relu'))
-nn.add(Dense(units=15, activation='relu'))
-nn.add(Dense(units=1, activation='softmax'))
-nn.compile(optimizer="adam", loss="sparse_categorical_crossentropy",
-           metrics=['accuracy'])
-nn.fit(indep_training, dep_training, batch_size=500, epochs=10)
+# nn.add(Dense(units=15, activation='relu'))
+nn.add(Dense(units=1))
+nn.compile(optimizer="adam", loss="mse",
+           metrics=[tf.keras.metrics.MeanSquaredError()])
+nn.fit(indep_training, dep_training, batch_size=100, epochs=4000)
+
+# # Printing the Labels
+print(le_mapping)
+print(vac_type_label_mapping)
+print(re_covid_label_mapping)
+
+
+#! Moderna (2)
+moderna_optim = nn.predict_classes(np.array(([2, 0], [2, 1])))
+print(moderna_optim)
+
+#! Pfizer (2)
+pfizer_optim = nn.predict_classes(np.array(([3, 0], [3, 1])))
+print(pfizer_optim)
